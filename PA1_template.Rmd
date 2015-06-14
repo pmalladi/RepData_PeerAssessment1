@@ -65,7 +65,8 @@ print(sqldf("select interval from five_min_avg order by avg_steps desc limit 1")
 print(count(filter(acty, is.na(steps))))
 ```
 
-###b. Filling in missing data###
+###b. Imputing missing data###
+The missing data will be imputed using the 5-minute interval average across all days
 ```{r, echo=TRUE}
 for (timeElem in unique(acty$interval)) {
   avg_steps <- five_min_avg[five_min_avg$interval == timeElem, 1]
