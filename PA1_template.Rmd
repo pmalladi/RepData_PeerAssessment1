@@ -1,25 +1,112 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Peer Assignment 1"
+author: "Pavan Malladi"
+date: "June 14, 2015"
+output: html_document
 ---
 
+This R Markdown was created to describe the steps taken to accomplish the peer assigmment 1, part of Reproducible Research module of Data Science course from Johns Hopkins Bloomberg School of Public Health.
 
-## Loading and preprocessing the data
+##Data##
+The personal activity recorded using a monitoring device is used as the base input data for this assignment.
 
+##Loading required packages##
+```{r, echo=FALSE}
+library(lattice)
+library(dplyr)
+library(sqldf)
+```
 
+##1. Loading the data##
+```{r, echo=TRUE}
+acty <- read.csv("activity.csv")
+```
 
-## What is mean total number of steps taken per day?
+##2. Mean Total Number of Steps taken per day##
 
+###a. Filter out incomplete rows###
+```{r, echo=TRUE}
+valid_acty <- sqldf("select * from acty where steps <> 'NA'")
+```
 
+###b. Total Number of steps taken per day###
+```{r, echo=TRUE}
+daily_steps <- sqldf("select date 'Date', sum(steps) 'steps_per_day' from valid_acty group by date")
+daily_steps
+```
 
-## What is the average daily activity pattern?
+###c. Histogram of total steps per day###
+```{r, echo=TRUE}
+daily_steps_vector <- as.vector(daily_steps$`steps_per_day`)
+hist(daily_steps_vector)
+```
 
+###d. Mean and Median of total steps per day###
+```{r, echo=FALSE}
+print(paste("Mean of total steps per day:", mean(daily_steps_vector)))
+print(paste("Median of total steps per day:", median(daily_steps_vector)))
+```
 
+##3. Average daily activity pattern##
+###a. Time series plot of the 5-minute interval and average numbmer of steps taken, averaged across all days###
+```{r, echo=FALSE}
+five_min_avg <- sqldf("select avg(steps) 'avg_steps', interval from valid_acty group by interval")
+xyplot(avg_steps ~ interval, data = five_min_avg, type = "l")
+```
 
-## Imputing missing values
+###b. The 5-minute interval with maximum number of steps###
+```{r, echo=FALSE}
+print(sqldf("select interval from five_min_avg order by avg_steps desc limit 1"))
+```
 
+##4. Imputing Missing values##
+###a. Number of missing values
+```{r, echo=TRUE}
+print(count(filter(acty, is.na(steps))))
+```
 
+###b. Filling in missing data###
+```{r, echo=TRUE}
+for (timeElem in unique(acty$interval)) {
+  avg_steps <- five_min_avg[five_min_avg$interval == timeElem, 1]
+  acty[is.na(acty$steps) & acty$interval == timeElem, 1] <- avg_steps
+}
+head(acty)
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+###c. Save the activity with imputed data###
+```{r, echo=TRUE}
+write.csv(acty, file = "imputed_activity.csv")
+```
+
+###d. Histogram of total steps with imputed data###
+```{r, echo=TRUE}
+daily_steps2 <- sqldf("select date 'Date', sum(steps) 'steps_per_day' from acty group by date")
+daily_steps_vector2 <- as.vector(daily_steps2$`steps_per_day`)
+hist(daily_steps_vector2)
+```
+
+###e. Mean and Median of total steps per day with imputed data###
+```{r, echo=TRUE}
+print(paste("Mean of total steps per day:", mean(daily_steps_vector2)))
+print(paste("Median of total steps per day:", median(daily_steps_vector2)))
+```
+
+###f. Impact of imputing missing data###
+```{r, echo=TRUE}
+print(paste("Step count is now available for",count(daily_steps2),"as against the original", count(daily_steps),"days"))
+```
+
+##5. Difference in activity pattern between Weekdays and Weekends##
+###a. Introducing new factor variable "dayType" to hold "weekday" or "weekend" based on the "date" value###
+```{r, echo=TRUE}
+acty <- mutate(acty, dayType = ifelse((as.POSIXlt(acty$date)$wday == 0 | as.POSIXlt(acty$date)$wday == 6), "weekend", "weekday"))
+```
+
+###b. Plotting the difference in activity pattern between Weekdays and Weekends
+```{r, echo=TRUE}
+five_min_avg_week <- sqldf("select dayType, interval, avg(steps) 'avg_steps' from acty group by dayType, interval")
+xyplot(avg_steps ~ interval | dayType, data = five_min_avg_week, type = "l", layout = c(1,2))
+```
+
+## That marks the end of this R Markdown file ##
